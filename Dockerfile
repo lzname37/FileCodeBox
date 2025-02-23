@@ -1,24 +1,30 @@
-FROM python:3.9.5-slim-buster
-LABEL author="Lan"
-LABEL email="xzu@live.com"
+FROM lanol/filecodebox:beta
 
-# 将当前目录下的文件复制到容器的 /app 目录
-COPY . /app
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
-# 设置时区为亚洲/上海
-RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' >/etc/timezone
+RUN pip3 install --no-cache-dir huggingface_hub datasets
 
-# 设置工作目录
+RUN useradd -m -u 1000 user
+
 WORKDIR /app
 
-# 删除不必要的目录，减少镜像体积
-RUN rm -rf docs fcb-fronted
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH \
+    HF_HOME=/app/data/hf_cache \
+    PYTHONUNBUFFERED=1
 
-# 安装依赖
-RUN pip install -r requirements.txt
+RUN mkdir -p /app/data && \
+    chown -R user:user /app/data
 
-# 暴露端口
+COPY sync_data.sh /app/
+RUN chmod +x /app/sync_data.sh && \
+    chown user:user /app/sync_data.sh
+
+USER user
+
 EXPOSE 12345
 
-# 启动应用
-CMD ["python", "main.py"]
+ENTRYPOINT ["/app/sync_data.sh"]
